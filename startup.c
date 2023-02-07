@@ -17,7 +17,7 @@ __asm__ volatile(".L1: B .L1\n");				/* never return */
 #include "typedef.h" // Import some typedefs that ease coding.
 #include "gpio.h"    // Addresses for different ports and their respective
                      // registers.
-#define IS_DEBUG 1   // Used for conditional compilation, during development.
+#define IS_DEBUG 1   // Used for conditional compilation during development.
                      // Production code should always set this to 0.
 
 // =============================================================================
@@ -26,7 +26,7 @@ __asm__ volatile(".L1: B .L1\n");				/* never return */
 /**
  * @brief Run code to initialize program and do important preparations.
  */
-void app_init(void) // TODO
+void app_init(void)
 {
     // Start clocks for port D and port E.
     *(volatile ulong*)0x40023830 = 0x18;
@@ -40,6 +40,20 @@ void app_init(void) // TODO
     *(volatile uint*)   GPIOD_PUPDR     &= 0x0000FFFF;
     *(volatile uint*)   GPIOD_PUPDR     |= 0x00AA0000;
 }
+
+
+// =============================================================================
+// DATA
+
+/**
+ * @brief A matrix with the key-values for the keypad.
+ */
+const uchar KEYCODE[][4] =
+{ {  1, 2,  3, 10 }
+, {  4, 5,  6, 11 }
+, {  7, 8,  9, 12 }
+, { 14, 0, 15, 13 }
+};
 
 
 // =============================================================================
@@ -71,63 +85,76 @@ uchar keyb(void)
 
 /**
  * @brief Activates the specific row on the keyboard.
- * 
- * @param row The current row to index. Is 1-indexed.
+ *
+ * @param row The current row to index. Is 1-indexed. 1 <= row <= 4.
  */
 void activate_row(uint row)
 {
-    volatile uchar *gpoid_otype_high = (volatile uchar*)(GPIOD_OTYPER + 1);
+    volatile uchar *gpoid_odr_high = (volatile uchar*)(GPIOD_ODR + 1);
 
     switch (row)
     {
     case 1:
-        *gpoid_otype_high = 0x10;
-        break;
+        *gpoid_odr_high = 0x10; break;
+
     case 2:
-        *gpoid_otype_high = 0x20;
-        break;
+        *gpoid_odr_high = 0x20; break;
+
     case 3:
-        *gpoid_otype_high = 0x40;
-        break;
+        *gpoid_odr_high = 0x40; break;
+
     case 4:
-        *gpoid_otype_high = 0x80;
-        break;
-    default:
-        // LMAO
+        *gpoid_odr_high = 0x80; break;
+
+    default: break;
+        // NAUGHTY MOVE
     }
 }
 
 
 /**
- * @brief TODO
+ * @brief Read each column from the keypad and return the first column that is
+ *        enabled.
  */
 int read_column()
 {
-    for (uint col = 1; col <= 4; col++)
-        if ( 0/* Some way of determining if shit is active */ )
-            return col;
+    uchar c = *(volatile uchar*)(GPIOD_IDR + 1);
+
+    if ( c & 0b1000 ) return 1;
+    if ( c & 0b0100 ) return 2;
+    if ( c & 0b0010 ) return 3;
+    if ( c & 0b0001 ) return 4;
 
     return 0;
 }
 
 
 /**
- * @brief TODO
+ * @brief Output the value from the keypad onto the 7-segment-display.
  */
 void out_7_seg(uchar keycode)
 {
-    // TODO
+    volatile uchar *gpiod_odr_low = (volatile uchar*)GPIOD_ODR;
+
+    if ( 1 <= keycode && keycode <= 15 )
+        *gpiod_odr_low = keycode;
+    else
+        *gpiod_odr_low = 0;
 }
 
 
 /**
- * @brief TODO
- * @param row The row of the key being pressed.
- * @param col The column of the key being pressed.
+ * @brief Get the keyvalue corresponding to the row and column.
+ * 
+ * @param row The row of the key being pressed. 1-indexed.
+ * @param col The column of the key being pressed. 1-indexed.
  */
 uchar key_value(uint row, uint col)
 {
-    // TODO
+    row--;
+    col--;
+
+    return KEYCODE[row][col];
 }
 
 
@@ -146,4 +173,3 @@ void main(void)
 #endif
     }
 }
-
