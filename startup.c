@@ -17,7 +17,8 @@ __asm__ volatile(".L1: B .L1\n");				/* never return */
 #include "typedef.h" // Import some typedefs that ease coding.
 #include "gpio.h"    // Addresses for different ports and their respective
                      // registers.
-
+#define IS_DEBUG 1   // Used for conditional compilation, during development.
+                     // Production code should always set this to 0.
 
 // =============================================================================
 // PROGRAM SET-UP
@@ -109,7 +110,10 @@ void main(void)
 
     while (true)
     {
-
+        out_7_seg( keyb() );
+#ifdef IS_DEBUG
+        while (true) {}
+#endif
     }
 }
 
