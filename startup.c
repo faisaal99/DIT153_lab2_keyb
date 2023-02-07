@@ -33,6 +33,12 @@ void app_init(void) // TODO
     // Set port D to medium speed.
     *(volatile uint*)0x40020C08 = 0x55555555;
 
+    // Rig port D to work with a keypad.
+    *(volatile ushort*) GPIOD_MODER_HIGH = 0x5500;
+    *(volatile ushort*) GPIOD_MODER_LOW  = 0x5555;
+    *(volatile ushort*) GPIOD_OTYPER    &= 0x00FF;
+    *(volatile uint*)   GPIOD_PUPDR     &= 0x0000FFFF;
+    *(volatile uint*)   GPIOD_PUPDR     |= 0x00AA0000;
 }
 
 
@@ -64,12 +70,31 @@ uchar keyb(void)
 
 
 /**
- * @brief TODO
+ * @brief Activates the specific row on the keyboard.
+ * 
  * @param row The current row to index. Is 1-indexed.
  */
 void activate_row(uint row)
 {
+    volatile uchar *gpoid_otype_high = (volatile uchar*)(GPIOD_OTYPER + 1);
 
+    switch (row)
+    {
+    case 1:
+        *gpoid_otype_high = 0x10;
+        break;
+    case 2:
+        *gpoid_otype_high = 0x20;
+        break;
+    case 3:
+        *gpoid_otype_high = 0x40;
+        break;
+    case 4:
+        *gpoid_otype_high = 0x80;
+        break;
+    default:
+        // LMAO
+    }
 }
 
 
