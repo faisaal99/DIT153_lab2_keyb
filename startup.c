@@ -17,7 +17,7 @@ __asm__ volatile(".L1: B .L1\n");				/* never return */
 #include "typedef.h" // Import some typedefs that ease coding.
 #include "gpio.h"    // Addresses for different ports and their respective
                      // registers.
-#define IS_DEBUG 1   // Used for conditional compilation during development.
+#define IS_DEBUG 0   // Used for conditional compilation during development.
                      // Production code should always set this to 0.
 
 // =============================================================================
@@ -34,8 +34,8 @@ void app_init(void)
     *(volatile uint*)0x40020C08 = 0x55555555;
 
     // Rig port D to work with a keypad.
-    *(volatile ushort*) GPIOD_MODER_HIGH = 0x5500;
     *(volatile ushort*) GPIOD_MODER_LOW  = 0x5555;
+    *(volatile ushort*) GPIOD_MODER_HIGH = 0x5500;
     *(volatile ushort*) GPIOD_OTYPER    &= 0x00FF;
     *(volatile uint*)   GPIOD_PUPDR     &= 0x0000FFFF;
     *(volatile uint*)   GPIOD_PUPDR     |= 0x00AA0000;
@@ -48,11 +48,20 @@ void app_init(void)
 /**
  * @brief A matrix with the key-values for the keypad.
  */
-const uchar KEYCODE[][4] =
+const uchar KEYCODE[4][4] =
 { {  1, 2,  3, 10 }
 , {  4, 5,  6, 11 }
 , {  7, 8,  9, 12 }
 , { 14, 0, 15, 13 }
+};
+
+/**
+ * @brief Retrieve the code for the 7-segment-display based on the keycode
+ *        retrieved from KEYCODE.
+ */
+const char KEYCODE_INTO_7SEG[] =
+{ 0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07,
+  0x7F, 0x6F, 0x77, 0x7C, 0x39, 0x5E, 0x79, 0x71
 };
 
 
@@ -79,7 +88,7 @@ uchar keyb(void)
             return key_value(row, column);
     }
 
-    return 0xFF;
+    return (uchar)0xFF;
 }
 
 
@@ -90,21 +99,21 @@ uchar keyb(void)
  */
 void activate_row(uint row)
 {
-    volatile uchar *gpoid_odr_high = (volatile uchar*)(GPIOD_ODR + 1);
+    volatile uchar *gpiod_odr_high = (volatile uchar*)(GPIOD_ODR + 1);
 
     switch (row)
     {
     case 1:
-        *gpoid_odr_high = 0x10; break;
+        *gpiod_odr_high = 0x10; break;
 
     case 2:
-        *gpoid_odr_high = 0x20; break;
+        *gpiod_odr_high = 0x20; break;
 
     case 3:
-        *gpoid_odr_high = 0x40; break;
+        *gpiod_odr_high = 0x40; break;
 
     case 4:
-        *gpoid_odr_high = 0x80; break;
+        *gpiod_odr_high = 0x80; break;
 
     default: break;
         // NAUGHTY MOVE
@@ -118,12 +127,20 @@ void activate_row(uint row)
  */
 int read_column()
 {
+    // Get the high-byte of IDR.
     uchar c = *(volatile uchar*)(GPIOD_IDR + 1);
 
-    if ( c & 0b1000 ) return 1;
-    if ( c & 0b0100 ) return 2;
-    if ( c & 0b0010 ) return 3;
-    if ( c & 0b0001 ) return 4;
+    if ( c & 0b1000 )
+        return 4;
+
+    if ( c & 0b0100 )
+        return 3;
+
+    if ( c & 0b0010 )
+        return 2;
+
+    if ( c & 0b0001 )
+        return 1;
 
     return 0;
 }
@@ -136,8 +153,8 @@ void out_7_seg(uchar keycode)
 {
     volatile uchar *gpiod_odr_low = (volatile uchar*)GPIOD_ODR;
 
-    if ( 1 <= keycode && keycode <= 15 )
-        *gpiod_odr_low = keycode;
+    if ( 0 <= keycode && keycode <= 15 )
+        *gpiod_odr_low = KEYCODE_INTO_7SEG[keycode];
     else
         *gpiod_odr_low = 0;
 }
@@ -145,7 +162,7 @@ void out_7_seg(uchar keycode)
 
 /**
  * @brief Get the keyvalue corresponding to the row and column.
- * 
+ *
  * @param row The row of the key being pressed. 1-indexed.
  * @param col The column of the key being pressed. 1-indexed.
  */
@@ -164,11 +181,12 @@ uchar key_value(uint row, uint col)
 void main(void)
 {
     app_init();
+    *(volatile uchar*)GPIOD_ODR = 0x02;
 
     while (true)
     {
         out_7_seg( keyb() );
-#ifdef IS_DEBUG
+#if IS_DEBUG
         while (true) {}
 #endif
     }
