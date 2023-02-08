@@ -1,3 +1,3 @@
 # Lab 2 | keyb
 
-## Authors: Faisal A., Eli N. & Valter M.
+## Authors: Faisal A., Eli U. & Valter M.
